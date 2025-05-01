@@ -96,15 +96,9 @@ class ChromaMemoryService(BaseMemoryService):
         except Exception as e:
             return SearchMemoryResponse(memories=[])
         
-        # Perform semantic search
-        semantic_results = collection.query(
-            query_texts=[query],
-            n_results=self.top_k,
-        )
-        
         # Perform keyword search
         keywords = set(query.lower().split())
-        keyword_results = collection.query(
+        results = collection.query(
             query_texts=[query],
             n_results=self.top_k,
             where_document={"$or": [
@@ -114,34 +108,33 @@ class ChromaMemoryService(BaseMemoryService):
         )
         
         session_events = {}
-        for results in [semantic_results, keyword_results]:
-            for i, doc_id in enumerate(results["ids"][0]):
-                session_id = doc_id.split("_")[0]
-                event_id = doc_id.split("_")[1]
-                
+        for i, doc_id in enumerate(results["ids"][0]):
+            session_id = doc_id.split("_")[0]
+            event_id = doc_id.split("_")[1]
+            
                     
-                metadata = results["metadatas"][0][i]
-                event = Event(
-                    id=event_id,
-                    invocation_id=metadata["invocation_id"],
-                    author=metadata["author"],
-                    timestamp=metadata["timestamp"],
-                    content=types.Content(parts=[types.Part(text=results["documents"][0][i])]),
-                    branch=metadata["branch"] if metadata["branch"] else None,
-                    actions=EventActions.model_validate_json(metadata["actions"]) if metadata["actions"] else None,
-                    long_running_tool_ids=set(eval(metadata["long_running_tool_ids"])) if metadata["long_running_tool_ids"] else None,
-                    grounding_metadata=types.GroundingMetadata.model_validate_json(metadata["grounding_metadata"]) if metadata["grounding_metadata"] else None,
-                    partial=metadata["partial"],
-                    turn_complete=metadata["turn_complete"],
-                    error_code=metadata["error_code"],
-                    error_message=metadata["error_message"],
-                    interrupted=metadata["interrupted"],
-                    custom_metadata=metadata["custom_metadata"]
-                )
+            metadata = results["metadatas"][0][i]
+            event = Event(
+                id=event_id,
+                invocation_id=metadata["invocation_id"],
+                author=metadata["author"],
+                timestamp=metadata["timestamp"],
+                content=types.Content(parts=[types.Part(text=results["documents"][0][i])]),
+                branch=metadata["branch"] if metadata["branch"] else None,
+                actions=EventActions.model_validate_json(metadata["actions"]) if metadata["actions"] else None,
+                long_running_tool_ids=set(eval(metadata["long_running_tool_ids"])) if metadata["long_running_tool_ids"] else None,
+                grounding_metadata=types.GroundingMetadata.model_validate_json(metadata["grounding_metadata"]) if metadata["grounding_metadata"] else None,
+                partial=metadata["partial"],
+                turn_complete=metadata["turn_complete"],
+                error_code=metadata["error_code"],
+                error_message=metadata["error_message"],
+                interrupted=metadata["interrupted"],
+                custom_metadata=metadata["custom_metadata"]
+            )
                 
-                if session_id not in session_events:
-                    session_events[session_id] = []
-                session_events[session_id].append(event)
+            if session_id not in session_events:
+                session_events[session_id] = []
+            session_events[session_id].append(event)
         
         # Create memory results
         memory_results = []
